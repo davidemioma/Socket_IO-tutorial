@@ -1,0 +1,149 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+//npm i -D prisma
+//npx prisma init
+//npx prisma generate - Do this after creating a new model
+//npx prisma db push - to push to your database.
+//npx prisma migrate reset - to reset your databse.
+//npx prisma studio - to view your data
+
+enum Role {
+  ADMIN
+  MODERATOR
+  GUEST
+}
+
+enum ChannelType {
+  TEXT
+  AUDIO
+  VIDEO
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+datasource db {
+  provider = "mysql"
+  url = env("DATABASE_URL")
+  relationMode = "prisma"
+}
+
+model Profile {
+  id String @id @default(uuid())
+  clerkId String @unique
+  name String
+  email String @db.Text
+  imgUrl String @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  servers Server[]
+  members Member[]
+  channels Channel[]
+}
+
+model Server {
+  id String @id @default(uuid())
+  profileId String
+  name String
+  imgUrl String @db.Text
+  inviteCode String @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  profile Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  members Member[]
+  channels Channel[]
+
+  @@index([profileId])
+}
+
+model Member {
+  id String @id @default(uuid())
+  profileId String
+  serverId String
+  role Role @default(GUEST)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  profile Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  server Server @relation(fields: [serverId], references: [id], onDelete: Cascade)
+
+  messages Message[]
+  directMessages DirectMessage[]
+  convosInitiated Conversation[] @relation("MemberOne")
+  convosReceived Conversation[] @relation("MemberTwo")
+
+  @@index([profileId])
+  @@index([serverId])
+}
+
+model Channel {
+  id String @id @default(uuid())
+  name String
+  profileId String
+  serverId String
+  type ChannelType @default(TEXT)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  profile Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  server Server @relation(fields: [serverId], references: [id], onDelete: Cascade)
+
+  messages Message[]
+
+  @@index([profileId])
+  @@index([serverId])
+}
+
+model Message{
+  id String @id @default(uuid())
+  channelId String
+  memberId String
+  content String @db.Text
+  fileUrl String? @db.Text
+  deleted Boolean @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  channel Channel @relation(fields: [channelId], references: [id],onDelete: Cascade)
+  member Member @relation(fields: [memberId], references: [id],onDelete: Cascade)
+
+  @@index([memberId])
+  @@index([channelId])
+}
+
+model Conversation{
+  id String @id @default(uuid())
+  memberOneId String
+  memberTwoId String
+
+  memberOne Member @relation("MemberOne", fields: [memberOneId], references: [id],onDelete: Cascade)
+  memberTwo Member @relation("MemberTwo", fields: [memberTwoId], references: [id],onDelete: Cascade)
+
+  directMessages DirectMessage[]
+
+  @@index([memberOneId])
+  @@index([memberTwoId])
+
+  @@unique([memberOneId, memberTwoId])
+}
+
+model DirectMessage{
+  id String @id @default(uuid())
+  memberId String
+  conversationId String
+  content String @db.Text
+  fileUrl String? @db.Text
+  deleted Boolean @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  member Member @relation(fields: [memberId], references: [id],onDelete: Cascade)
+  conversation Conversation @relation(fields: [conversationId], references: [id],onDelete: Cascade)
+
+  @@index([memberId])
+  @@index([conversationId])
+}
